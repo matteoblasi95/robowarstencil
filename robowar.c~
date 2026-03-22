@@ -1,0 +1,155 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<omp.h>
+
+#define SIZE 5
+
+struct playergrids {
+  unsigned pixelstatus** player1grid;
+  unsigned pixelstatus** player2grid;
+}
+
+struct pixelstatus {
+  char type; // 'C' for civilian, 'A' for army
+  unsigned char status; // 0 dead, 1 alive
+}
+
+
+playergrid grid1[2][SIZE+2][SIZE+2];
+
+playergrid grid2[2][SIZE+2][SIZE+2];
+
+int cur_step = 0;
+
+const int LEFT = 1;
+const int RIGHT = SIZE;
+const int TOP = 1;
+const int BOTTOM = SIZE;
+
+void init(float p, float k) {
+
+  int i,j;
+  
+  for(i=0;i<SIZE;i++) {
+    for(j=0;j<SIZE;j++) {
+      char status1 = (((float)rand())/RAND_MAX < p);
+      float a1 = (float)rand()/RAND_MAX;
+      char status2 = (((float)rand())/RAND_MAX < p);
+      float a2 = (float)rand()/RAND_MAX;
+      grid1[cur_step][i][j].status = status1;
+      grid1[cur_step][i][j].type = a1 <= k ? 'C' : 'A';
+      grid2[cur_step][i][j].status = status2;
+      grid2[cur_step][i][j].type = a2 <= k ? 'C' : 'A';
+    }
+    
+  }
+  
+}
+
+void copy_sides() {
+
+  int i,j;
+  const int HALO_TOP = TOP-1;
+  const int HALO_BOTTOM = TOP+1;
+  const int HALO_LEFT = LEFT-1;
+  const int HALO_RIGHT = RIGHT+1;
+  
+  for(j=LEFT;j<HALO_RIGHT;j++) {
+    grid1[cur_step][i][HALO_TOP]=grid1[cur_step][i][BOTTOM];
+    grid1[cur_step][i][HALO_BOTTOM]=grid1[cur_step][i][TOP];
+    grid2[cur_step][i][HALO_TOP]=grid2[cur_step][i][BOTTOM];
+    grid2[cur_step][i][HALO_BOTTOM]=grid2[cur_step][i][TOP];
+  }
+
+  for(i=TOP;i<HALO_BOTTOM;i++) {
+    grid1[cur_step][i][HALO_LEFT]=grid1[cur_step][i][RIGHT];
+    grid1[cur_step][i][HALO_RIGHT]=grid1[cur_step][i][LEFT];
+    grid2[cur_step][i][HALO_LEFT]=grid2[cur_step][i][RIGHT];
+    grid2[cur_step][i][HALO_RIGHT]=grid2[cur_step][i][LEFT];
+  }
+
+  /* copy corners */
+
+  // first player grid
+
+  grid1[cur_step][HALO_TOP][HALO_LEFT] = grid1[cur_step][BOTTOM][RIGHT];
+  grid1[cur_step][HALO_TOP][HALO_RIGHT] = grid1[cur_step][BOTTOM][LEFT];
+  grid1[cur_step][HALO_BOTTOM][HALO_LEFT] = grid2[cur_step][TOP][RIGHT];
+  grid1[cur_step][HALO_BOTTOM][HALO_RIGHT] = grid2[cur_step][TOP][LEFT];
+
+  // second player grid
+  
+  grid2[cur_step][HALO_TOP][HALO_LEFT] = grid1[cur_step][BOTTOM][RIGHT];
+  grid2[cur_step][HALO_TOP][HALO_RIGHT] = grid1[cur_step][BOTTOM][LEFT];
+  grid2[cur_step][HALO_BOTTOM][HALO_LEFT] = grid2[cur_step][TOP][RIGHT];
+  grid2[cur_step][HALO_BOTTOM][HALO_RIGHT] = grid2[cur_step][TOP][LEFT];
+  
+}
+
+void nextStep()
+{
+
+  int i,j,next = cur+1;
+  for(i=TOP;i<=BOTTOM;i++) {
+    for(j=LEFT;j<=RIGHT;j++) {
+      
+    }
+
+  }
+
+}
+
+/* Write grid[cur] to file fname in pbm (portable bitmap) format. This
+   function uses the global variables cur and grid (neither is
+   modified). */
+void write_pbm( const char* fname )
+{
+    int i, j;
+    FILE *f = fopen(fname, "w");
+    if (!f) {
+        printf("Cannot open %s for writing\n", fname);
+        abort();
+    }
+    fprintf(f, "P1\n");
+    fprintf(f, "# produced by game-of-life.c\n");
+    fprintf(f, "%d %d\n", SIZE, SIZE);
+    for (i=TOP; i<=BOTTOM; i++) {
+        for (j=LEFT; j<=RIGHT; j++) {
+            fprintf(f, "%d ", grid[cur][i][j]);
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+
+int main(int argc, char* argv) {
+
+  int s, nsteps = 1000;
+  char fname[BUFFSIZE];
+  srand(1234);
+
+  if(argc > 2) {
+    fprintf(stderr, "Usage: %s [nsteps]\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+  
+  if(argc == 2) {
+    nsteps = atoi(argv[1]);
+  }
+  
+  cur = 0;
+  init(0.3);
+  
+  for (s=0; s<nsteps; s++) {
+        snprintf(fname, BUFSIZE, "gol%04d.pbm", s);
+        write_pbm(fname);
+        copy_sides();
+        step();
+        cur = 1 - cur;
+  }
+    
+  return EXIT_SUCCESS;  
+
+}
+
+
