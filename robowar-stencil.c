@@ -41,11 +41,14 @@ unsigned char spawn_pixel(float p1, float p2)
     }
 
     float coin2 = ((float) rand()) / RAND_MAX;
-    return (coin2 > p2) ? 'A' : 'B';
+    char pixel_status = (coin2 > p2) ? 'A' : 'B';
+    printf("spawning pixel with status: %c\n", pixel_status);
+    return pixel_status;
 }
 
 void init(float p1, float p2)
 {
+  printf("initializing grid, p1: %f - p2: %f", p1, p2);
     for (int i = 0; i < SIZE + 2; i++) {
         for (int j = 0; j < SIZE + 2; j++) {
             grid[cur_step][i][j] = 0;
@@ -108,17 +111,24 @@ unsigned char update_pixel_status(int i, int j, int num_enemies_dead, float spaw
     unsigned char cur_pix_status = grid[cur_step][i][j];
 
     if (cur_pix_status == 'D') {
+      printf("pixel [%d,%d] is already dead - remains dead\n", i , j);
         return 'D';
     }
 
     if (cur_pix_status == 0 && !pixels_nearby(i, j)) {
-        return spawn_pixel(spawn_p1, spawn_p2);
+        char spawned_pixel = spawn_pixel(spawn_p1, spawn_p2);
+	printf("pixel [%d,%d] is empty - spawned pixel: %c\n", i,j, spawned_pixel);
+	return  spawned_pixel;
     }
 
     if (cur_pix_status == 'A' || cur_pix_status == 'B') {
         int num_enemies = count_near_enemies(i, j);
-        return (num_enemies >= num_enemies_dead) ? 'D' : cur_pix_status;
+        char new_pixel_status = (num_enemies >= num_enemies_dead) ? 'D' : cur_pix_status;
+	printf("pixel [%d,%d]  of squad %c - new status: %c\n", i,j, cur_pix_status, new_pixel_status);
+	return new_pixel_status;
     }
+
+    printf("pixel [%d,%d]  of squad %c - pixel remains of same status: %c\n", i,j, cur_pix_status, cur_pix_status);
 
     return cur_pix_status;
 }
@@ -149,6 +159,7 @@ void copy_sides(void)
 void process_next_step(int num_enemies_dead, float spawn_p1, float spawn_p2)
 {
     int next = 1 - cur_step;
+    printf("Processing step %d\n", next);
 
     for (int i = TOP; i <= BOTTOM; i++) {
         for (int j = LEFT; j <= RIGHT; j++) {
@@ -211,6 +222,8 @@ int main(int argc, char *argv[])
     srand((unsigned) time(NULL));
 
     char fname[BUFSIZE];
+
+    printf("Starting robowar stencil - parameters: [num_steps: %d] - [num_neighbor_dead: %d]\n", nsteps, num_neighbor_dead);
 
     init(p1, p2);
 
