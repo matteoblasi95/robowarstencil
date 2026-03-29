@@ -202,11 +202,19 @@ unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int n
     }
 
     if (cur_pix_status == 'A' || cur_pix_status == 'B') {
-        unsigned int num_enemies = count_near_enemies(i, j);
-	float coin = ((float) rand_r(seed)) / RAND_MAX;
-	if(num_enemies >= num_enemies_dead) {
-	  return (coin < p_betray) ? get_opposite_squad(cur_pix_status) : 'D';
-	}
+    unsigned int num_enemies = count_near_enemies(i, j);
+
+    if (num_enemies >= num_enemies_dead) {
+        float coin = ((float) rand_r(seed)) / RAND_MAX;
+
+        float excess = (float)(num_enemies - num_enemies_dead + 1);
+        float max_excess = (float)(8 - num_enemies_dead + 1);
+        float factor = excess / max_excess;
+
+        float p_betray_eff = p_betray * factor;
+
+        return (coin < p_betray_eff) ? get_opposite_squad(cur_pix_status) : 'D';
+      }
     }
 
     //printf("pixel [%u,%u] unchanged, status: %c\n", i, j, cur_pix_status);
