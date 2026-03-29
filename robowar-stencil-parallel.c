@@ -306,7 +306,9 @@ int main(int argc, char *argv[])
     int max_active_pixels_reborn = 3;
 
     if (argc < 2 || argc > 6) {
-        fprintf(stderr, "Usage: %s nsteps [p1] [p2] [num_neighbor_dead]\n", argv[0]);
+        fprintf(stderr,
+        "Usage: %s nsteps [p1] [p2] [num_neighbor_dead] [max_active_pixels_reborn]\n",
+        argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -317,8 +319,9 @@ int main(int argc, char *argv[])
     if (argc >= 5) num_neighbor_dead = atoi(argv[4]);
     if (argc == 6) max_active_pixels_reborn = atoi(argv[5]);
 
-    printf("Starting robowar stencil - parameters: [num_steps: %d] - [num_neighbor_dead: %d]\n",
-           nsteps, num_neighbor_dead);
+    printf("Starting robowar stencil - parameters: [num_steps: %d] - [num_neighbor_dead: %d] - [max_active_pixels_reborn: %d]\n",
+       nsteps, num_neighbor_dead, max_active_pixels_reborn);
+    
     fflush(stdout);
 
     init(p1, p2);
