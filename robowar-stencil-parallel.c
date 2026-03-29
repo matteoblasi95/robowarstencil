@@ -33,12 +33,25 @@ unsigned char spawn_pixel(float p1, float p2, unsigned int *seed);
 void init(float p1, float p2);
 unsigned int count_active_neighbors(unsigned int k, unsigned int m);
 unsigned int count_near_enemies(unsigned int k, unsigned int m);
-unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int num_enemies_dead,unsigned int max_active_pixels_reborn, unsigned int *seed);
+unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int num_enemies_dead,unsigned int max_active_pixels_reborn, float p_betray, unsigned int *seed);
 void copy_sides(void);
-unsigned int process_next_step(unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn);
+unsigned int process_next_step(unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn, float p_betray);
 void fill_image_scaled(uint8_t *image);
 unsigned char spawn_active_pixel(unsigned int k, unsigned int m, unsigned int *seed);
 unsigned int count_active_neighbors_squad(unsigned int k, unsigned int m, unsigned char squad);
+unsigned char get_opposite_squad(unsigned char squad);
+
+
+unsigned char get_opposite_squad(unsigned char squad) {
+
+  if(squad != 'A' && squad != 'B') {
+    fprintf(stderr, "Error: squad must be 'A' or 'B'\n");
+    abort();
+  }
+
+  return squad == 'A' ? 'B' : 'A';
+
+}
 
 unsigned char spawn_pixel(float p1, float p2, unsigned int *seed)
 {
@@ -105,7 +118,7 @@ unsigned int count_active_neighbors(unsigned int k, unsigned int m)
 unsigned int count_active_neighbors_squad(unsigned int k, unsigned int m, unsigned char squad)
 {
     if(squad != 'A' && squad != 'B') {
-      printf("error in count active neighbors squad, parameter squad must be either A or B");
+      fprintf(stderr, "error in count active neighbors squad, parameter squad must be either A or B");
       abort();
     }
 
@@ -129,7 +142,7 @@ unsigned int count_near_enemies(unsigned int k, unsigned int m)
 {
 
     if (k > SIZE + 1 || m > SIZE + 1) {
-      printf("k,m OUT OF BOUNDS: [%u,%u]\n", k, m);
+      fprintf(stderr, "k,m OUT OF BOUNDS: [%u,%u]\n", k, m);
       abort();
     }
   
@@ -148,7 +161,7 @@ unsigned int count_near_enemies(unsigned int k, unsigned int m)
         for (int j = m - 1; j <= m + 1; j++) {
 
 	    if (i > SIZE + 1 || j > SIZE + 1) {
-              printf("i,j OUT OF BOUNDS: [%u,%u]\n", i, j);
+              fprintf(stderr, "i,j OUT OF BOUNDS: [%u,%u]\n", i, j);
               abort();
             }
 	  
@@ -173,7 +186,7 @@ unsigned int count_near_enemies(unsigned int k, unsigned int m)
     return num_enemies;
 }
 
-unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn, unsigned int *seed)
+unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn, float p_betray, unsigned int *seed)
 {
     unsigned char cur_pix_status = grid[cur_step][i][j];
 
@@ -181,6 +194,7 @@ unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int n
 	count_active_neighbors(i, j) <= max_active_pixels_reborn) {
 
       float coin = ((float) rand_r(seed)) / RAND_MAX;
+
       if (coin < 0.5f)
         return spawn_active_pixel(i,j,seed);
       else
@@ -189,13 +203,10 @@ unsigned char update_pixel_status(unsigned int i, unsigned int j, unsigned int n
 
     if (cur_pix_status == 'A' || cur_pix_status == 'B') {
         unsigned int num_enemies = count_near_enemies(i, j);
-        unsigned char new_pixel_status = (num_enemies >= num_enemies_dead) ? 'D' : cur_pix_status;
-	/*
-	if(new_pixel_status == 'D') {
-	  printf("pixel [%u,%u] of squad %c - num_of_enemies: %u - pixel is now dead\n",i, j, cur_pix_status, num_enemies);
+	float coin = ((float) rand_r(seed)) / RAND_MAX;
+	if(num_enemies >= num_enemies_dead) {
+	  return (coin < p_betray) ? get_opposite_squad(cur_pix_status) : 'D';
 	}
-	*/
-        return new_pixel_status;
     }
 
     //printf("pixel [%u,%u] unchanged, status: %c\n", i, j, cur_pix_status);
@@ -225,7 +236,7 @@ void copy_sides(void)
     grid[cur_step][HALO_BOTTOM][HALO_RIGHT] = grid[cur_step][TOP][LEFT];
 }
 
-unsigned int process_next_step(unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn)
+unsigned int process_next_step(unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn, float p_betray)
 {
     unsigned int next = 1 - cur_step;
     unsigned int changes = 0;
@@ -242,7 +253,7 @@ unsigned int process_next_step(unsigned int num_enemies_dead, unsigned int max_a
         for (int i = TOP; i <= BOTTOM; i++) {
             for (int j = LEFT; j <= RIGHT; j++) {
                 unsigned char new_status =
-		  update_pixel_status(i, j, num_enemies_dead, max_active_pixels_reborn, &seed);
+		  update_pixel_status(i, j, num_enemies_dead, max_active_pixels_reborn, p_betray, &seed);
 
                 grid[next][i][j] = new_status;
 
@@ -300,14 +311,14 @@ void fill_image_scaled(uint8_t *image)
 
 int main(int argc, char *argv[])
 {
-    int s, nsteps;
-    float p1 = 0.5f, p2 = 0.5f;
-    int num_neighbor_dead = 4;
-    int max_active_pixels_reborn = 3;
+    unsigned int s, nsteps;
+    float p1 = 0.5f, p2 = 0.5f,p_betray = 0.5f;
+    unsigned int num_neighbor_dead = 4;
+    unsigned int max_active_pixels_reborn = 3;
 
-    if (argc < 2 || argc > 6) {
+    if (argc < 2 || argc > 7) {
         fprintf(stderr,
-        "Usage: %s nsteps [p1] [p2] [num_neighbor_dead] [max_active_pixels_reborn]\n",
+        "Usage: %s nsteps [p1] [p2] [p_betray] [num_neighbor_dead] [max_active_pixels_reborn]\n",
         argv[0]);
         return EXIT_FAILURE;
     }
@@ -316,11 +327,12 @@ int main(int argc, char *argv[])
 
     if (argc >= 3) p1 = (float)atof(argv[2]);
     if (argc >= 4) p2 = (float)atof(argv[3]);
-    if (argc >= 5) num_neighbor_dead = atoi(argv[4]);
-    if (argc == 6) max_active_pixels_reborn = atoi(argv[5]);
+    if (argc >= 5) p_betray = (float)atof(argv[4]);
+    if (argc >= 6) num_neighbor_dead = atoi(argv[5]);
+    if (argc == 7) max_active_pixels_reborn = atoi(argv[6]);
 
-    printf("Starting robowar stencil - parameters: [num_steps: %d] - [num_neighbor_dead: %d] - [max_active_pixels_reborn: %d]\n",
-       nsteps, num_neighbor_dead, max_active_pixels_reborn);
+    printf("Starting robowar stencil - parameters: [num_steps: %d] - [num_neighbor_dead: %d] - [max_active_pixels_reborn: %d] - [p_betray: %.2f]\n",
+       nsteps, num_neighbor_dead, max_active_pixels_reborn, p_betray);
     
     fflush(stdout);
 
@@ -348,7 +360,7 @@ int main(int argc, char *argv[])
 
     for (s = 0; s < nsteps; s++) {
       copy_sides();
-      unsigned int changes = process_next_step(num_neighbor_dead, max_active_pixels_reborn);
+      unsigned int changes = process_next_step(num_neighbor_dead, max_active_pixels_reborn, p_betray);
 
       printf("Step %d - changes: %u\n", s + 1, changes);
 
