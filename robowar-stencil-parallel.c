@@ -8,7 +8,7 @@
 #define GIF_IMPLEMENTATION
 #include "gif.h"
 
-#define SIZE 120
+#define SIZE 1000
 #define SCALE 6
 #define NSTATES 2
 #define FRAME_DELAY 60
