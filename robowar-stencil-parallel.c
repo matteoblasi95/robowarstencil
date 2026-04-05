@@ -343,8 +343,8 @@ int main(int argc, char *argv[])
     if (argc >= 6) num_neighbor_dead = atoi(argv[5]);
     if (argc == 7) max_active_pixels_reborn = atoi(argv[6]);
 
-    printf("Starting robowar stencil - parameters: [num_steps: %u] - [num_neighbor_dead: %u] - [max_active_pixels_reborn: %u] - [p_betray: %.2f]\n",
-       nsteps, num_neighbor_dead, max_active_pixels_reborn, p_betray);
+    printf("Starting robowar stencil - parameters: [GRID-SIZE: %u] - [num_steps: %u] - [num_neighbor_dead: %u] - [max_active_pixels_reborn: %u] - [p_betray: %.2f]\n",
+	   SIZE, nsteps, num_neighbor_dead, max_active_pixels_reborn, p_betray);
     
     fflush(stdout);
 
