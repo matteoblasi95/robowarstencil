@@ -92,20 +92,24 @@ unsigned char spawn_active_pixel(unsigned int k, unsigned int m, unsigned int *s
 
 void init(float p1, float p2)
 {
-    unsigned int seed = (unsigned int) time(NULL);
+    #pragma omp parallel
+    {
+        unsigned int seed = (unsigned int)time(NULL)
+                  ^ (unsigned int)(omp_get_thread_num() + 1)
+                  ^ 0x9e3779b9u;
 
-    printf("initializing grid, p1: %f - p2: %f\n", p1, p2);
-    fflush(stdout);
-
-    for (int i = 0; i < SIZE + 2; i++) {
-        for (int j = 0; j < SIZE + 2; j++) {
-            grid[cur_step][i][j] = 0;
+        #pragma omp for collapse(2)
+        for (int i = 0; i < SIZE + 2; i++) {
+            for (int j = 0; j < SIZE + 2; j++) {
+                grid[cur_step][i][j] = 0;
+            }
         }
-    }
 
-    for (int i = TOP; i <= BOTTOM; i++) {
-        for (int j = LEFT; j <= RIGHT; j++) {
-            grid[cur_step][i][j] = spawn_pixel(p1, p2, &seed);
+        #pragma omp for collapse(2)
+        for (int i = TOP; i <= BOTTOM; i++) {
+            for (int j = LEFT; j <= RIGHT; j++) {
+                grid[cur_step][i][j] = spawn_pixel(p1, p2, &seed);
+            }
         }
     }
 }
