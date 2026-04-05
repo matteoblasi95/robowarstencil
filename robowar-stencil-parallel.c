@@ -8,7 +8,7 @@
 #define GIF_IMPLEMENTATION
 #include "gif.h"
 
-#define SIZE 1000
+#define SIZE 500
 #define SCALE 6
 #define NSTATES 2
 #define FRAME_DELAY 60
@@ -95,20 +95,18 @@ void init(float p1, float p2)
     #pragma omp parallel
     {
         unsigned int seed = (unsigned int)time(NULL)
-                  ^ (unsigned int)(omp_get_thread_num() + 1)
-                  ^ 0x9e3779b9u;
+                          ^ (unsigned int)(omp_get_thread_num() + 1)
+                          ^ 0x9e3779b9u;
 
         #pragma omp for collapse(2)
         for (int i = 0; i < SIZE + 2; i++) {
             for (int j = 0; j < SIZE + 2; j++) {
                 grid[cur_step][i][j] = 0;
-            }
-        }
 
-        #pragma omp for collapse(2)
-        for (int i = TOP; i <= BOTTOM; i++) {
-            for (int j = LEFT; j <= RIGHT; j++) {
-                grid[cur_step][i][j] = spawn_pixel(p1, p2, &seed);
+                if (i >= TOP && i <= BOTTOM &&
+                    j >= LEFT && j <= RIGHT) {
+                    grid[cur_step][i][j] = spawn_pixel(p1, p2, &seed);
+                }
             }
         }
     }
@@ -248,35 +246,32 @@ void copy_sides(void)
     grid[cur_step][HALO_BOTTOM][HALO_RIGHT] = grid[cur_step][TOP][LEFT];
 }
 
-unsigned int process_next_step(unsigned int num_enemies_dead, unsigned int max_active_pixels_reborn, float p_betray)
+unsigned int process_next_step(unsigned int num_enemies_dead,
+                               unsigned int max_active_pixels_reborn,
+                               float p_betray)
 {
     unsigned int next = 1 - cur_step;
     unsigned int changes = 0;
 
-    #pragma omp parallel
-    {
-        unsigned int seed = (unsigned int)time(NULL)
-                  ^ (unsigned int)(omp_get_thread_num() + 1)
-                  ^ (unsigned int)(cur_step * 7919);
-	
-        unsigned int local_changes = 0;
+    #pragma omp parallel for collapse(2) reduction(+:changes)
+    for (int i = TOP; i <= BOTTOM; i++) {
+        for (int j = LEFT; j <= RIGHT; j++) {
+            unsigned int seed = (unsigned int)time(NULL)
+                              ^ (unsigned int)(omp_get_thread_num() + 1)
+                              ^ (unsigned int)(cur_step * 7919)
+                              ^ (unsigned int)(i * 73856093u)
+                              ^ (unsigned int)(j * 19349663u);
 
-        #pragma omp for collapse(2)
-        for (int i = TOP; i <= BOTTOM; i++) {
-            for (int j = LEFT; j <= RIGHT; j++) {
-                unsigned char new_status =
-		  update_pixel_status(i, j, num_enemies_dead, max_active_pixels_reborn, p_betray, &seed);
+            unsigned char new_status =
+                update_pixel_status(i, j, num_enemies_dead,
+                                    max_active_pixels_reborn, p_betray, &seed);
 
-                grid[next][i][j] = new_status;
+            grid[next][i][j] = new_status;
 
-                if (new_status != grid[cur_step][i][j]) {
-                    local_changes++;
-                }
+            if (new_status != grid[cur_step][i][j]) {
+                changes++;
             }
         }
-
-        #pragma omp atomic
-        changes += local_changes;
     }
 
     cur_step = next;
@@ -344,7 +339,7 @@ int main(int argc, char *argv[])
     if (argc >= 6) num_neighbor_dead = atoi(argv[5]);
     if (argc == 7) max_active_pixels_reborn = atoi(argv[6]);
 
-    printf("Starting robowar stencil - parameters: [num_steps: %d] - [num_neighbor_dead: %d] - [max_active_pixels_reborn: %d] - [p_betray: %.2f]\n",
+    printf("Starting robowar stencil - parameters: [num_steps: %u] - [num_neighbor_dead: %u] - [max_active_pixels_reborn: %u] - [p_betray: %.2f]\n",
        nsteps, num_neighbor_dead, max_active_pixels_reborn, p_betray);
     
     fflush(stdout);
@@ -366,24 +361,31 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    double start_time = omp_get_wtime();
-
     fill_image_scaled(image);
     GifWriteFrame(&writer, image, out_width, out_height, FRAME_DELAY, 8, false);
 
+    printf("Max threads: %d\n", omp_get_max_threads());
+
+    unsigned int changes = 0;
+    
+    double start_time = omp_get_wtime();
+
     for (s = 0; s < nsteps; s++) {
       copy_sides();
-      unsigned int changes = process_next_step(num_neighbor_dead, max_active_pixels_reborn, p_betray);
+      changes = process_next_step(num_neighbor_dead, max_active_pixels_reborn, p_betray);
 
       printf("Step %d - changes: %u\n", s + 1, changes);
 
       fill_image_scaled(image);
       GifWriteFrame(&writer, image, out_width, out_height, FRAME_DELAY, 8, false);
 
+      
       if (changes == 0) {
           printf("Simulazione stabilizzata allo step %d\n", s + 1);
           break;
       }
+      
+      
     }
 
     double end_time = omp_get_wtime();
