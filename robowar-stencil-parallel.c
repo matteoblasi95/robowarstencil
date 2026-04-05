@@ -253,23 +253,27 @@ unsigned int process_next_step(unsigned int num_enemies_dead,
     unsigned int next = 1 - cur_step;
     unsigned int changes = 0;
 
-    #pragma omp parallel for collapse(2) reduction(+:changes)
-    for (int i = TOP; i <= BOTTOM; i++) {
-        for (int j = LEFT; j <= RIGHT; j++) {
-            unsigned int seed = (unsigned int)time(NULL)
-                              ^ (unsigned int)(omp_get_thread_num() + 1)
-                              ^ (unsigned int)(cur_step * 7919)
-                              ^ (unsigned int)(i * 73856093u)
-                              ^ (unsigned int)(j * 19349663u);
+    #pragma omp parallel reduction(+:changes)
+    {
+        unsigned int seed = (unsigned int)time(NULL)
+                          ^ (unsigned int)(omp_get_thread_num() + 1)
+                          ^ (unsigned int)(cur_step * 7919);
 
-            unsigned char new_status =
-                update_pixel_status(i, j, num_enemies_dead,
-                                    max_active_pixels_reborn, p_betray, &seed);
+        #pragma omp for collapse(2)
+        for (int i = TOP; i <= BOTTOM; i++) {
+            for (int j = LEFT; j <= RIGHT; j++) {
+                unsigned char new_status =
+                    update_pixel_status((unsigned int)i, (unsigned int)j,
+                                        num_enemies_dead,
+                                        max_active_pixels_reborn,
+                                        p_betray,
+                                        &seed);
 
-            grid[next][i][j] = new_status;
+                grid[next][i][j] = new_status;
 
-            if (new_status != grid[cur_step][i][j]) {
-                changes++;
+                if (new_status != grid[cur_step][i][j]) {
+                    changes++;
+                }
             }
         }
     }
@@ -367,30 +371,39 @@ int main(int argc, char *argv[])
     printf("Max threads: %d\n", omp_get_max_threads());
 
     unsigned int changes = 0;
-    
-    double start_time = omp_get_wtime();
+
+    double sim_time = 0.0;
+    double total_start = omp_get_wtime();
 
     for (s = 0; s < nsteps; s++) {
-      copy_sides();
-      changes = process_next_step(num_neighbor_dead, max_active_pixels_reborn, p_betray);
 
-      printf("Step %d - changes: %u\n", s + 1, changes);
+      copy_sides();
+
+      double t0 = omp_get_wtime();
+
+      changes = process_next_step(num_neighbor_dead,
+                                max_active_pixels_reborn,
+                                p_betray);
+
+      double t1 = omp_get_wtime();
+      sim_time += (t1 - t0);
+
+      printf("Step %u - changes: %u\n", s + 1, changes);
 
       fill_image_scaled(image);
       GifWriteFrame(&writer, image, out_width, out_height, FRAME_DELAY, 8, false);
 
-      
       if (changes == 0) {
-          printf("Simulazione stabilizzata allo step %d\n", s + 1);
-          break;
+        printf("Simulazione stabilizzata allo step %u\n", s + 1);
+        break;
       }
-      
-      
     }
 
-    double end_time = omp_get_wtime();
+    double total_end = omp_get_wtime();
 
-    printf("Execution time: %f\n", end_time - start_time);
+    printf("Simulation time (NO GIF): %f\n", sim_time);
+    printf("Total time (WITH GIF): %f\n", total_end - total_start);
+    
     fflush(stdout);
 
     GifEnd(&writer);
